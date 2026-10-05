@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IFT 458 Assignment 1 Student Guide</title>
+<style>
+body{font:17px/1.6 system-ui,-apple-system,Segoe UI,sans-serif;color:#20252b;background:#f4f5f7;margin:0}
+main{max-width:1000px;margin:0 auto;background:white;padding:36px 48px}h1{font-size:2rem;margin-top:2em}h2{margin-top:2em;color:#662238}h3{margin-top:1.6em}a{color:#075b99}nav{padding:18px;background:#f1f3f5;border-radius:6px}nav a{display:inline-block;margin-right:18px}pre{background:#f3f4f6;padding:16px;overflow:auto;border-radius:5px}code{font-size:.9em}table{border-collapse:collapse;width:100%;margin:20px 0;font-size:.95em}th,td{border:1px solid #d4d8df;padding:10px;text-align:left;vertical-align:top}th{background:#edf0f4}tr:nth-child(even){background:#fafbfc}li{margin:.4em 0}
+@media(max-width:650px){main{padding:18px}body{font-size:16px}table{font-size:.85em}th,td{padding:6px}}
+@media print{body{background:white;font-size:11pt}main{max-width:none;padding:0}nav{display:none}pre{white-space:pre-wrap}h1,h2,h3{break-after:avoid}tr{break-inside:avoid}a{color:inherit}}
+</style></head><body><main>
+<nav aria-label="Guide sections"><a href="#ift-458-assignment-1">Assignment</a><a href="#using-swagger-for-level-1">Swagger guide</a><a href="#before-you-submit">Submission checklist</a></nav>
+<h1 id="ift-458-assignment-1">IFT 458 Assignment 1</h1>
+<h2 id="database-authentication-without-authorization">Database authentication without authorization</h2>
+<p>Complete this assignment independently using the included Level 1 Game Score Tracker API. You will connect it to your own database, create users and scores, demonstrate unprotected game changes, and submit screenshots and a log. A successful login checks a password but creates no lasting authenticated session. That is the behavior you are investigating.</p>
+<p>Read this guide in order. Save evidence as you work. This release replaces the older Word handout and does not require an Atlas setup script from another project. The Canvas assignment supplies the due date.</p>
+<h2 id="1-prepare-your-computer-and-folder">1 Prepare your computer and folder</h2>
+<p>You need Node.js 22.19.0 or a later 22.x release, npm, Visual Studio Code or another editor, a browser, a MongoDB Atlas account, and Microsoft Word. Node.js and npm must be available in your terminal. Installation requires internet access. The project's database libraries require Node.js 20.19.0 or newer; this package was checked with Node.js 22.19.0.</p>
+<p>Download <code>2.1-Level-1-Simple-DB-Authentication.zip</code> from Canvas. Extract it completely using Extract All on Windows or by double-clicking on macOS. Open the included <code>IFT_Level1</code> folder, not the ZIP itself. <code>package.json</code>, <code>server.js</code>, and <code>START-HERE.html</code> should be directly inside it. Do not add a second nested folder or rename individual source files.</p>
+<p>Open this folder in your editor and select Terminal &gt; New Terminal. Run:</p>
+<pre><code class="language-text">node --version
+npm --version
+npm ci
+</code></pre>
+<p><code>npm ci</code> installs the versions recorded in <code>package-lock.json</code>. <code>npm install</code> is also acceptable. Wait for the command to finish successfully. Save Screenshot 3 with the actual command and result; you do not need to reproduce a particular package count or audit message. If PowerShell blocks <code>npm.ps1</code>, use <code>npm.cmd ci</code> and <code>npm.cmd start</code>, or open a Command Prompt terminal.</p>
+<p>Take Screenshots 1 and 2 of the extracted folder and the editor's project tree. <code>node_modules/</code> appears after installation; <code>logs/</code> appears when the app runs. They are intentionally absent from the download.</p>
+<h2 id="2-set-up-your-own-mongodb-atlas-database">2 Set up your own MongoDB Atlas database</h2>
+<p>Use a separate assignment database named <code>ift458_level1</code>. Do not point this project at a shared class database or a database containing work you need to preserve. The seed script deletes the users and games in the selected database.</p>
+<p>Sign in to Atlas and select or create your course project. Create a database deployment if you do not have one, using a free option if available. Wait for it to become ready. Atlas screen names can vary; use the cluster's Connect flow to find these settings:</p>
+<ol>
+<li>Create a <strong>database user</strong> with password authentication and permission to read and write the assignment database. This is separate from your Atlas website account.</li>
+<li>Add your current public IP address to the project's <strong>Network Access / IP Access List</strong>. If your network changes later, update this entry.</li>
+<li>On the cluster choose <strong>Connect &gt; Drivers &gt; Node.js</strong> and copy its connection string. Keep the actual cluster hostname and connection options provided by Atlas.</li>
+<li>Put <code>ift458_level1</code> after the host's slash and before <code>?</code> in the connection string.</li>
+</ol>
+<p>Capture the connection information for Screenshot 4 without its password, and the active IP access entry for Screenshot 5. The official <a href="https://www.mongodb.com/docs/atlas/connect-to-database-deployment/">Atlas connection guide</a> explains the database user and IP access prerequisites. MongoDB also documents <a href="https://www.mongodb.com/docs/manual/reference/connection-string/">connection string formats</a>.</p>
+<h2 id="3-configure-the-application">3 Configure the application</h2>
+<p>Copy <code>config.env.example</code> to <code>.env</code> in the project root. Use your editor's copy and rename commands, or one of the following:</p>
+<p>Windows PowerShell:</p>
+<pre><code class="language-powershell">Copy-Item config.env.example .env
+</code></pre>
+<p>macOS or Linux:</p>
+<pre><code class="language-bash">cp config.env.example .env
+</code></pre>
+<p>Do not name it <code>.env.txt</code>. Edit the copy, retaining the other defaults:</p>
+<pre><code class="language-dotenv">NODE_ENV=development
+PORT=4001
+API_VERSION=/api/v1
+STUDENT_NAME=&quot;Your Full Name&quot;
+STUDENT_ID=&quot;Your ten-digit ASU ID&quot;
+BCRYPT_ROUNDS=12
+DATABASE=mongodb+srv://ift_user:&lt;password&gt;@YOUR_CLUSTER.mongodb.net/ift458_level1?retryWrites=true&amp;w=majority
+DATABASE_PASSWORD=&quot;YOUR_URI_ENCODED_DATABASE_PASSWORD&quot;
+</code></pre>
+<p>Replace <code>ift_user</code> with your database username and <code>YOUR_CLUSTER.mongodb.net</code> with the exact hostname copied from Atlas. Keep the literal <code>&lt;password&gt;</code> placeholder in <code>DATABASE</code>; put the database user's password in <code>DATABASE_PASSWORD</code>. Encode special characters in the username and password for a URI before using them here (for example, <code>@</code> becomes <code>%40</code>, <code>#</code> becomes <code>%23</code>, and <code>%</code> becomes <code>%25</code>). Encode once, not twice. Do not use an online password encoder. Retain any additional connection options from Atlas.</p>
+<p>Only <code>.env</code> is needed. The app also supports <code>config.env</code> for compatibility, but <code>.env</code> wins when both define a setting. Environment variables already set in your terminal take precedence over both files. Save changes and restart the app for them to take effect.</p>
+<p>Take Screenshot 6 with password values completely covered and your student name and ID readable. Do not upload <code>.env</code>, <code>config.env</code>, or real database credentials. The log records your identity, hostname, and network addresses. By default it also attempts a public IP/geolocation lookup; add <code>LOG_GEO=false</code> to <code>.env</code> to disable that lookup. It is not needed to demonstrate the eight CLOs.</p>
+<p>Run the seed command once:</p>
+<pre><code class="language-text">npm run seed
+</code></pre>
+<p>It clears users and games, then imports three users and three games. It does not clear scores. Seeded users use the demonstration password <code>password12345</code>. Capture Screenshot 7. Do not reseed after collecting your user and game evidence unless you intend to repeat that work.</p>
+<p>Start the server:</p>
+<pre><code class="language-text">npm start
+</code></pre>
+<p>Wait for <strong>DB connection successful</strong> and the ready message. Check your name and ID in the banner and take Screenshot 8. Keep this terminal open. Open <code>http://localhost:4001/api-docs</code> in your browser. Use the local API server in Swagger; if you changed <code>PORT</code>, use that port in the browser too.</p>
+<h2 id="4-work-through-the-api-tasks">4 Work through the API tasks</h2>
+<p>Complete A through F in <strong>one uninterrupted server run</strong>. Coverage is stored in memory and starts over each time <code>npm start</code> runs. Database records persist, but coverage from separate runs is not combined. If you restart, repeat all API tasks using fresh email addresses as needed.</p>
+<p>For each operation: expand it, choose <strong>Try it out</strong>, enter valid JSON or the requested ID, click <strong>Execute</strong>, and inspect the <strong>Server response</strong>. A status code printed in the documentation's Responses table is not evidence that your request succeeded.</p>
+<h3 id="task-a-create-three-users-and-inspect-their-hashes">Task A Create three users and inspect their hashes</h3>
+<p>Call <code>POST /users/signup</code> three times. Use your own distinct names and email addresses. This example is a shape to follow:</p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;Student One&quot;,
+  &quot;email&quot;: &quot;student.one@ift458.test&quot;,
+  &quot;password&quot;: &quot;password12345&quot;,
+  &quot;passwordConfirmation&quot;: &quot;password12345&quot;
+}
+</code></pre>
+<p>Each call should return <strong>201</strong>. Capture Screenshots 9a, 9b, and 9c. Use a demonstration password that you do not use for any real account. In Atlas, browse <code>ift458_level1</code> &gt; <code>users</code>, refresh the collection, and locate all three users. Expand one document to show the bcrypt hash in <code>password</code>; <code>passwordConfirmation</code> should not be stored. Take Screenshot 10. Using the same password for two users does not produce identical hashes because bcrypt uses a salt.</p>
+<h3 id="task-b-create-and-list-three-scores">Task B Create and list three scores</h3>
+<p>Call <code>POST /scores</code> three times with different game titles and the emails of your new users:</p>
+<pre><code class="language-json">{
+  &quot;gameTitle&quot;: &quot;Hollow Knight&quot;,
+  &quot;platform&quot;: &quot;pc&quot;,
+  &quot;points&quot;: 128400,
+  &quot;levelReached&quot;: 12,
+  &quot;playerEmail&quot;: &quot;student.one@ift458.test&quot;
+}
+</code></pre>
+<p>Expect <strong>201</strong> each time. Use, for example, Celeste and Tetris for your other game titles. Call <code>GET /scores</code>; expect <strong>200</strong> and your three scores in <code>data.scores</code> with <code>results</code> at least 3. Take Screenshot 11a. In Atlas, refresh the <code>scores</code> collection and capture the same records as Screenshot 11b. Keep these three scores for the submission evidence.</p>
+<h3 id="task-c-complete-game-crud-without-logging-in">Task C Complete game CRUD without logging in</h3>
+<p>Do this task <strong>before Task D</strong>, so you can show deletion without any preceding login in this run. Operate only on your own assignment database.</p>
+<ol>
+<li><code>POST /games</code> with the body below. Expect <strong>201</strong>. Copy the returned <code>data.game._id</code>.</li>
+<li><code>GET /games</code>. Expect <strong>200</strong> and find your new game.</li>
+<li><code>GET /games/{id}</code> with that ID. Expect <strong>200</strong>.</li>
+<li><code>PATCH /games/{id}</code> with <code>{"title":"Assignment Demo Updated","submittedBy":"Course Admin"}</code>. Expect <strong>200</strong>.</li>
+<li><code>DELETE /games/{id}</code> with the same ID. Expect <strong>204</strong>, with no response body.</li>
+<li><code>GET /games/{id}</code> again. Expect <strong>404</strong>, confirming deletion.</li>
+</ol>
+<pre><code class="language-json">{
+  &quot;title&quot;: &quot;Assignment Demo&quot;,
+  &quot;developer&quot;: &quot;Student Studio&quot;,
+  &quot;description&quot;: &quot;A disposable game for the Level 1 assignment.&quot;,
+  &quot;platform&quot;: &quot;pc&quot;,
+  &quot;submittedBy&quot;: &quot;Your Name&quot;
+}
+</code></pre>
+<p>Capture the create, read, update, and delete responses as Screenshots 12a–12d; a further figure can show the final 404. Explain why the name <code>Course Admin</code> did not prove the caller's identity. Read <code>routes/gameRoutes.js</code> and identify the delete route and its lack of an authentication/authorization guard. Do not edit it. No user or moderator approved your deletion; the API permits it without checking who called it.</p>
+<h3 id="task-d-test-correct-and-incorrect-login">Task D Test correct and incorrect login</h3>
+<p>Call <code>POST /users/login</code> with one of the users you created:</p>
+<pre><code class="language-json">{
+  &quot;email&quot;: &quot;student.one@ift458.test&quot;,
+  &quot;password&quot;: &quot;password12345&quot;
+}
+</code></pre>
+<p>Expect <strong>200</strong>. Inspect the response body and headers: there is no token or authentication <code>Set-Cookie</code> header. Repeat with the correct email and a wrong password; expect <strong>401</strong>. Repeat with an email that is not registered; expect <strong>401</strong> and the same error message. Capture these as Screenshots 12e–12g. Explain why a successful password check does not protect the next request.</p>
+<h3 id="task-e-demonstrate-validation">Task E Demonstrate validation</h3>
+<p>Repeat a successful signup with the exact same email; expect <strong>409</strong>. Then try a new email with <code>"password":"abc"</code> and <code>"passwordConfirmation":"abc"</code>; expect <strong>400</strong>. Capture these as Screenshots 12h–12i. These failures are intentional evidence, not setup problems. Correct them before trying to create another valid user.</p>
+<h3 id="task-f-exercise-the-remaining-score-operations">Task F Exercise the remaining score operations</h3>
+<p>Create a fourth disposable score using Task B's body and copy its <code>data.score._id</code>. Read it with <code>GET /scores/{id}</code> (<strong>200</strong>), change it with <code>PATCH /scores/{id}</code> and <code>{"status":"verified"}</code> (<strong>200</strong>), then delete it with <code>DELETE /scores/{id}</code> (<strong>204</strong>). Keep a supplementary screenshot of the status change as 12j. The API lets any caller claim a score is verified; a moderator role is not enforced at Level 1. Your original three scores should remain available for evidence.</p>
+<h2 id="5-understand-the-data-and-the-learning-outcomes">5 Understand the data and the learning outcomes</h2>
+<p>The <code>User</code> model validates name, email, and password confirmation and hashes a new password before saving. Normal user queries omit the password field, and signup/login responses do not expose it. <code>Game</code> requires <code>title</code>, <code>developer</code>, and <code>description</code>; <code>submittedBy</code> is unverified text. <code>Score</code> requires <code>gameTitle</code>, integer <code>points</code> from 0 through 100000000, and a valid-looking <code>playerEmail</code>. Allowed statuses are <code>submitted</code>, <code>verified</code>, <code>rejected</code>, and <code>disputed</code>. The email is supplied by the caller and is not proof of identity. <code>userId</code> normally remains null for API-created Level 1 scores.</p>
+<p>You may read any source file. Edit your configuration files only for these tasks. If your instructor separately assigns a coding task, make the requested changes only in <code>controllers/</code> and include a screenshot of them. Do not change the schemas, routes, middleware, logging, tests, or server files for this assignment.</p>
+<table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Evidence required during this server run</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>L1-CLO1 Database connection</td>
+<td>Successful application startup</td>
+</tr>
+<tr>
+<td>L1-CLO2 Password registration</td>
+<td>Signup returns 201; inspect stored hash for your report</td>
+</tr>
+<tr>
+<td>L1-CLO3 Correct credentials</td>
+<td>Login returns 200</td>
+</tr>
+<tr>
+<td>L1-CLO4 Invalid credentials</td>
+<td>Login returns 401; compare both failure cases in your report</td>
+</tr>
+<tr>
+<td>L1-CLO5 Input validation</td>
+<td>Signup returns 400 or 409 (an invalid game POST returning 400 also counts)</td>
+</tr>
+<tr>
+<td>L1-CLO6 Game CRUD</td>
+<td>Game POST 201, GET 200, PATCH 200, and DELETE 204</td>
+</tr>
+<tr>
+<td>L1-CLO7 Scores</td>
+<td>Score POST 201 and GET 200; create all three required records for your report</td>
+</tr>
+<tr>
+<td>L1-CLO8 Missing authorization</td>
+<td>Game DELETE 204 without logging in; explain the weakness</td>
+</tr>
+</tbody>
+</table>
+<p>The automatic tracker checks requests and status codes. It does not count your three users or scores, inspect your screenshots, or grade your explanation. An 8/8 log alone does not complete the assignment.</p>
+<h2 id="6-finalize-and-read-the-log">6 Finalize and read the log</h2>
+<p>Return to the running server terminal and press <strong>Ctrl+C</strong> once. Wait for <strong>CLO COVERAGE - 8/8 demonstrated</strong>, the checksum message, and the printed submission path. Take Screenshot 13.</p>
+<p>Open the timestamped <code>logs/app-...log</code> file named in that message. The filename timestamp identifies the start of the run. <code>app-latest.log</code> is a convenience copy that a future run can replace. Submit the timestamped file, without renaming or editing it. Take Screenshot 14 showing successful and failed requests; confirm the coverage section and <code># checksum sha256 of everything above:</code> line exist near the end.</p>
+<p>If coverage is incomplete, preserve the log for diagnosis. On a new server run, repeat <strong>all</strong> tasks, not only the missing ones, because coverage resets. Use fresh emails to obtain successful signups. Do not alter the log to add outcomes.</p>
+<p>Write <strong>90–120 words</strong> in your Word document under <strong>Security Log Analysis</strong>. Use your own log's timestamps or line numbers and address:</p>
+<ol>
+<li>Which lines record security-relevant activity and why.</li>
+<li>What surprised you or would matter to an administrator.</li>
+<li>What the log deliberately omits or masks, such as passwords.</li>
+<li>One improvement you would make for production use.</li>
+</ol>
+<p>A login attempt, a rejected password, or an anonymous deletion is security-relevant evidence. A routine listing is usually operational evidence. Relate your explanation to your actual requests, not a generic description of logs.</p>
+<h2 id="7-screenshot-and-submission-checklist">7 Screenshot and submission checklist</h2>
+<p>Each numbered figure needs a clear label and one or two sentences explaining what it proves. Capture readable responses, not just a collapsed Swagger endpoint. Completely cover database passwords before inserting screenshots. Use 9a–9c and 12a–12j for related images so the original 1–14 numbering stays intact.</p>
+<table>
+<thead>
+<tr>
+<th>Figure</th>
+<th>Label and required evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>The unzipped project folder named IFT_Level1</td>
+</tr>
+<tr>
+<td>2</td>
+<td>The project folder structure in Visual Studio Code</td>
+</tr>
+<tr>
+<td>3</td>
+<td>npm ci or npm install completing without errors</td>
+</tr>
+<tr>
+<td>4</td>
+<td>The MongoDB Atlas connection string, with password concealed</td>
+</tr>
+<tr>
+<td>5</td>
+<td>The Atlas Network Access list including your active IP entry</td>
+</tr>
+<tr>
+<td>6</td>
+<td>The completed .env file, with secrets concealed</td>
+</tr>
+<tr>
+<td>7</td>
+<td>The seed command loading sample data</td>
+</tr>
+<tr>
+<td>8</td>
+<td>The application startup banner, database connection, and your identity</td>
+</tr>
+<tr>
+<td>9a–9c</td>
+<td>Creating three application users with 201 responses</td>
+</tr>
+<tr>
+<td>10</td>
+<td>The three new users in Atlas and one stored bcrypt hash</td>
+</tr>
+<tr>
+<td>11a–11b</td>
+<td>Your three scores in GET /scores and in Atlas</td>
+</tr>
+<tr>
+<td>12a–12d</td>
+<td>Game create, read, update, and anonymous delete responses</td>
+</tr>
+<tr>
+<td>12e–12g</td>
+<td>Correct login, wrong password, and unknown email responses</td>
+</tr>
+<tr>
+<td>12h–12i</td>
+<td>Duplicate email and invalid signup responses</td>
+</tr>
+<tr>
+<td>12j</td>
+<td>An unprotected score status change</td>
+</tr>
+<tr>
+<td>13</td>
+<td>The CLO coverage summary after Ctrl+C</td>
+</tr>
+<tr>
+<td>14</td>
+<td>The timestamped log open in a text editor</td>
+</tr>
+</tbody>
+</table>
+<p>Create <code>LastName_FirstName_IFT458_Assignment1.docx</code> in Word. Follow the existing course formatting requirements: Times New Roman 12 pt, double spacing, one-inch margins, and page numbers at the top right. Include a title page with the assignment title, your name, school, IFT 458, instructor Dinesh Sthapit, and submission date. Include the numbered figures and notes, your Security Log Analysis, and a References page for any sources you cite.</p>
+<p>Put the Word report and the unchanged timestamped log into <code>LastName_FirstName_Assignment1/</code>, then compress that folder as a ZIP. Upload it to Canvas <strong>In-Class Assignment 1</strong> and confirm the submission appears. The analysis is part of the report, not a separate required file. Do not include the source project, <code>.env</code>, <code>config.env</code>, <code>node_modules</code>, or an entire folder of unrelated logs.</p>
+<h3 id="marking">Marking</h3>
+<table>
+<thead>
+<tr>
+<th>Criterion</th>
+<th style="text-align: right;">Points</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Project restored, configured, and running (Figures 1–8)</td>
+<td style="text-align: right;">25</td>
+</tr>
+<tr>
+<td>Three users with API and database evidence</td>
+<td style="text-align: right;">15</td>
+</tr>
+<tr>
+<td>Three scores with API and database evidence</td>
+<td style="text-align: right;">15</td>
+</tr>
+<tr>
+<td>Level 1 security behavior, including login failures and anonymous modification/deletion</td>
+<td style="text-align: right;">15</td>
+</tr>
+<tr>
+<td>Log with CLO coverage and student identity</td>
+<td style="text-align: right;">10</td>
+</tr>
+<tr>
+<td>Security Log Analysis, specific and accurate</td>
+<td style="text-align: right;">10</td>
+</tr>
+<tr>
+<td>APA formatting, figure labels, and clear notes</td>
+<td style="text-align: right;">10</td>
+</tr>
+<tr>
+<td>Total</td>
+<td style="text-align: right;">100</td>
+</tr>
+</tbody>
+</table>
+<p>If you cannot finish, submit your available report and log. For each failure, record the exact action, expected result, actual error, and troubleshooting steps with their results. Include the application's checklist when available. Documented partial work can be assessed using the rubric; do not fabricate successful evidence.</p>
+<h2 id="8-troubleshooting-and-recovery">8 Troubleshooting and recovery</h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>What to check</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>node or npm is not recognized</td>
+<td>Install Node, reopen the terminal, and check the version</td>
+</tr>
+<tr>
+<td>npm cannot find package.json</td>
+<td>Open a terminal in the inner IFT_Level1 folder</td>
+</tr>
+<tr>
+<td>Engine version warning or failure</td>
+<td>Use the documented Node version; reopen the terminal after upgrading</td>
+</tr>
+<tr>
+<td>DATABASE is not set</td>
+<td>Create .env in the project root; check it is not .env.txt</td>
+</tr>
+<tr>
+<td>Atlas authentication fails</td>
+<td>Check the database user's password, username, URI encoding, and .env precedence</td>
+</tr>
+<tr>
+<td>ENOTFOUND or querySrv failure</td>
+<td>Check the exact cluster hostname and internet/DNS connectivity</td>
+</tr>
+<tr>
+<td>Database connection times out</td>
+<td>Check deployment readiness, current IP access entry, and network/firewall restrictions</td>
+</tr>
+<tr>
+<td>Port 4001 is already in use</td>
+<td>Stop the earlier app terminal with Ctrl+C, or use PORT=4002 and that port in the browser</td>
+</tr>
+<tr>
+<td>Swagger says Failed to fetch</td>
+<td>Keep npm start running and select the local server; reload the page after restart</td>
+</tr>
+<tr>
+<td>Signup returns 409 unexpectedly</td>
+<td>That email already exists; use a fresh one for a new successful signup</td>
+</tr>
+<tr>
+<td>A request returns 400</td>
+<td>Check JSON syntax, required fields, allowed values, and copied ObjectId</td>
+</tr>
+<tr>
+<td>An item returns 404</td>
+<td>Copy a real ID from the correct collection; a deleted record should return 404</td>
+</tr>
+<tr>
+<td>Summary is below 8/8</td>
+<td>Repeat A–F in one run; automated tests and old runs do not add coverage</td>
+</tr>
+<tr>
+<td>Test database download fails</td>
+<td>npm test needs internet on its first run and a supported MongoDB binary for your OS; preserve the error</td>
+</tr>
+</tbody>
+</table>
+<p><code>npm test</code> uses temporary MongoDB databases rather than your Atlas assignment records. Run it in another terminal if you need to check the starter code. It does not produce your graded app log. Keep the supplied lockfile; do not run dependency upgrades or audit fixes as part of this assignment.</p>
+<p>If you accidentally change source code, keep your evidence and configuration in a private backup, then extract a fresh copy to another folder. Restore only your own configuration. Do not delete your only copy of logs or screenshots.</p>
+<h3 id="local-mongodb-alternative">Local MongoDB alternative</h3>
+<p>Atlas is the default path because the required screenshots use it. If your instructor permits local MongoDB, use <code>DATABASE=mongodb://127.0.0.1:27017/ift458_level1</code> and a running MongoDB service. With Docker already installed and running, <code>docker run -d -p 127.0.0.1:27017:27017 --name ift458-mongo mongo:8.0</code> starts a local database. On later sessions use <code>docker start ift458-mongo</code>. Replace Atlas screenshots with equivalent local connection, service, and collection evidence and explain that substitution. The seed warning and all API tasks still apply.</p>
+<h1 id="using-swagger-for-level-1">Using Swagger for Level 1</h1>
+<p>OpenAPI describes this API's paths, inputs, and responses. Swagger UI displays that description and lets you send real requests. In this project, <code>SwaggerTFT458.js</code> supplies the description and <code>/api-docs</code> displays it. You can read the file, but do not edit it for this assignment.</p>
+<p>Start the configured application with <code>npm start</code>. Open <code>http://localhost:4001/api-docs</code> and use the local server. The <code>/api/v1</code> prefix is already part of the server URL; do not add it again to an ID field.</p>
+<ol>
+<li>Expand Users, Games, or Scores and choose an operation.</li>
+<li>Read the required fields and expected responses.</li>
+<li>Choose <strong>Try it out</strong>. Replace the example JSON with your own values. Use double quotes and no trailing commas.</li>
+<li>For <code>{id}</code>, paste the actual <code>_id</code> returned by a matching create or list request. Do not paste braces, the whole response, or a game's ID into a score request.</li>
+<li>Choose <strong>Execute</strong> once. Read the actual <strong>Server response</strong>, including its code and body. Inspect the request URL if it failed.</li>
+<li>Capture the request and actual response for your evidence. Avoid revealing real database passwords in any screenshot.</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>Normal successful result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>POST /users/signup</td>
+<td>201; user details, no password</td>
+</tr>
+<tr>
+<td>POST /users/login</td>
+<td>200; credential check, no session cookie or token</td>
+</tr>
+<tr>
+<td>GET /games and GET /scores</td>
+<td>200; results count and records</td>
+</tr>
+<tr>
+<td>POST /games and POST /scores</td>
+<td>201; new record and _id</td>
+</tr>
+<tr>
+<td>GET /games/{id} and GET /scores/{id}</td>
+<td>200; one record</td>
+</tr>
+<tr>
+<td>PATCH /games/{id} and PATCH /scores/{id}</td>
+<td>200; updated record</td>
+</tr>
+<tr>
+<td>DELETE /games/{id} and DELETE /scores/{id}</td>
+<td>204; empty body</td>
+</tr>
+</tbody>
+</table>
+<p>A 400 indicates rejected input, 401 indicates an unsuccessful login, 404 indicates a missing route or record, and 409 indicates an existing signup email. Read the returned message and the matching request in the log. A 500 needs investigation in the terminal and log.</p>
+<p>There is no authorization step or token to paste for Level 1. The absence of access checks is intentional. A caller can change <code>submittedBy</code>, claim someone else's <code>playerEmail</code>, or set a score's <code>status</code> to <code>verified</code>. The server does not establish that caller's identity for these actions.</p>
+<p>Score input uses <code>gameTitle</code>, <code>points</code>, and <code>playerEmail</code>. Score status values are <code>submitted</code>, <code>verified</code>, <code>rejected</code>, and <code>disputed</code>. Book, loan, or borrowing fields do not belong to this API.</p>
+<p>For the exact request bodies, task order, and evidence requirements, follow <a href="#ift-458-assignment-1">ASSIGNMENT.md</a>. Read the Schemas section in Swagger alongside <code>models/</code> to understand validation. Calling an operation sends a real request and can change your assignment database.</p>
+<h1 id="before-you-submit">Before you submit</h1>
+<ul>
+<li>[ ] The report is named LastName_FirstName_IFT458_Assignment1.docx.</li>
+<li>[ ] The title page and APA formatting follow the assignment.</li>
+<li>[ ] Figures 1–14 and their lettered subfigures are readable and have explanatory notes.</li>
+<li>[ ] Three successful user registrations and their stored hashes are evidenced.</li>
+<li>[ ] Three scores are shown in the API and database.</li>
+<li>[ ] Game CRUD, anonymous deletion, correct/incorrect login, and validation are evidenced.</li>
+<li>[ ] The report explains the missing authorization and includes a 90–120 word Security Log Analysis tied to this run.</li>
+<li>[ ] Ctrl+C finalized the application log.</li>
+<li>[ ] The timestamped app log shows my name, ID, eight outcomes, and checksum; it is unchanged.</li>
+<li>[ ] Any unfinished work is explained with errors, attempted fixes, and available evidence.</li>
+<li>[ ] Database passwords are concealed in screenshots; no .env or config.env is included.</li>
+<li>[ ] The submission ZIP contains only my Word report and timestamped log, not the starter project or node_modules.</li>
+<li>[ ] Canvas shows the uploaded ZIP as submitted to In-Class Assignment 1.</li>
+</ul></main></body></html>

@@ -1,0 +1,28 @@
+{
+  "name": "ift458-level1-simple-db-auth",
+  "version": "1.0.0",
+  "description": "IFT 458 Project 2 - Level 1: Simple database authentication with ZERO authorization",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "seed": "node dev-data/seed.js --import",
+    "seed:delete": "node dev-data/seed.js --delete",
+    "test": "node --test --test-reporter=spec \"tests/**/*.test.js\""
+  },
+  "author": "IFT 458",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "crypto": "^1.0.1",
+    "dotenv": "^18.0.3",
+    "express": "^5.2.1",
+    "mongoose": "^9.10.2",
+    "morgan": "^1.12.1",
+    "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {
+    "mongodb-memory-server": "^11.2.0",
+    "supertest": "^7.2.2"
+  }
+}
